@@ -112,4 +112,3 @@ Aunque las macros estén instaladas, persisten:
 - Constraint enforcement: Postgres enforcea PK/FK/UNIQUE; Redshift no.
 
 Mitigación: tests dbt explícitos (`unique`, `not_null`, `relationships`) + pipeline con sampling de modelos críticos.
-# fix_postgres_redshift_dbt

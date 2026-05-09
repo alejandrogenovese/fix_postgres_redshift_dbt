@@ -1,0 +1,61 @@
+# Snippet para dbt_project.yml
+# Agregar/mergear estas secciones en tu dbt_project.yml existente.
+
+# ----------------------------------------------------------
+# Hook de inicio: instala la capa de compatibilidad en Postgres
+# ----------------------------------------------------------
+on-run-start:
+  - "{{ install_postgres_compat() }}"
+
+
+# ----------------------------------------------------------
+# (opcional) Variables que las macros podrían leer en el futuro
+# ----------------------------------------------------------
+vars:
+  varchar_multibyte_factor: 4   # x4 para cubrir UTF-8 multibyte
+  default_timezone: 'America/Argentina/Buenos_Aires'
+
+
+# ----------------------------------------------------------
+# Configuración de modelos: ejemplo de DDL Redshift via config()
+# ----------------------------------------------------------
+# Esto NO va en dbt_project.yml directamente sino en cada modelo,
+# pero dejo el patrón documentado:
+#
+#   -- models/marts/customers.sql
+#   {{ config(
+#       materialized='table',
+#       dist='customer_id',                     -- DISTKEY
+#       sort=['created_at', 'customer_id'],     -- SORTKEY compound
+#       sort_type='compound',
+#       on_schema_change='sync_all_columns'
+#   ) }}
+#
+# El adapter Postgres ignora dist/sort silenciosamente.
+
+
+# ----------------------------------------------------------
+# Targets sugeridos en profiles.yml (referencia)
+# ----------------------------------------------------------
+# galicia_dbt:
+#   target: dev_local
+#   outputs:
+#     dev_local:
+#       type: postgres
+#       host: localhost
+#       port: 5432
+#       user: ale
+#       password: "{{ env_var('PG_LOCAL_PWD') }}"
+#       dbname: dbt_dev
+#       schema: ale_dev
+#       threads: 8
+#     dev_redshift:
+#       type: redshift
+#       host: galicia-dev.xxxx.redshift.amazonaws.com
+#       port: 5439
+#       user: "{{ env_var('REDSHIFT_USER') }}"
+#       password: "{{ env_var('REDSHIFT_PWD') }}"
+#       dbname: dev
+#       schema: ale_dev
+#       threads: 4
+#       ra3_node: true
