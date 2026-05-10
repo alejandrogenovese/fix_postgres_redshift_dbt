@@ -2,35 +2,36 @@
   // ─────────────────────────────────────────────────────────
   // Configuración Dev Container para VS Code
   // ─────────────────────────────────────────────────────────
+  // Compatible con Docker y Podman (ver INSTALACION.md).
+  //
   // Cómo usar:
-  //   1. En tu Mac, instalar la extensión "Dev Containers" en VS Code:
+  //   1. Instalar la extensión "Dev Containers" en VS Code:
   //      code --install-extension ms-vscode-remote.remote-containers
   //   2. Abrir el proyecto:  code .
-  //   3. Cuando VS Code muestre el toast "Reopen in Container", click.
-  //      (O: Cmd+Shift+P → "Dev Containers: Reopen in Container")
-  //   4. La primera vez tarda unos minutos (build del image + extensiones).
+  //   3. "Reopen in Container" cuando aparece el toast
+  //      (O: Cmd/Ctrl+Shift+P → "Dev Containers: Reopen in Container")
+  //
+  // Para Podman, configurar previamente en VS Code (User Settings):
+  //   "dev.containers.dockerPath": "podman"
+  //   "dev.containers.dockerComposePath": "podman-compose"  (Podman 3.x)
   // ─────────────────────────────────────────────────────────
 
   "name": "galicia_dbt_compat",
 
-  // Usamos el docker-compose.yml del proyecto. El servicio "dev" tiene
-  // Python+dbt y comparte network con postgres.
   "dockerComposeFile": "../docker-compose.yml",
   "service": "dev",
   "workspaceFolder": "/workspace",
   "remoteUser": "vscode",
 
-  // Que el container postgres también se levante.
   "runServices": ["postgres", "dev"],
-
-  // Al cerrar VS Code, parar todo el stack (postgres + dev).
   "shutdownAction": "stopCompose",
 
   // ─────────────────────────────────────────────────────────
-  // Setup automático al crear el container
+  // Setup automático al CREAR el container (no en attach).
+  // - Copia profiles.yml.example a ~/.dbt/
+  // - Instala packages dbt
+  // - Verifica conexión
   // ─────────────────────────────────────────────────────────
-  // Copia profiles.yml.example a ~/.dbt/, instala packages, y
-  // chequea conexión.
   "postCreateCommand": "bash -c 'mkdir -p ~/.dbt && cp profiles.yml.example ~/.dbt/profiles.yml && dbt deps && dbt debug || true'",
 
   // ─────────────────────────────────────────────────────────
@@ -67,8 +68,6 @@
         "[jinja-sql]": { "editor.tabSize": 4 },
         "terminal.integrated.defaultProfile.linux": "bash",
 
-        // SQLTools: conexión pre-configurada al postgres del compose.
-        // El password se pide la primera vez y se guarda en el keychain.
         "sqltools.connections": [
           {
             "name": "Local Postgres (devcontainer)",

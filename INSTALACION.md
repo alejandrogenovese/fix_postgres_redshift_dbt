@@ -1,96 +1,72 @@
-# Guía paso a paso — Instalación local
+# Guía paso a paso — Instalación
 
-Esta guía está pensada para alguien que **nunca implementó este tipo de capa cross-db** y quiere correr el proyecto en su máquina antes de adaptarlo a un entorno productivo.
-
-Si ya tenés Postgres y dbt instalados, podés saltar al [paso 4](#4-clonar-el-proyecto).
-
----
+Setup desde cero. El proyecto solo necesita Python+dbt y una base Postgres accesible. Cómo proveer esos ingredientes (host, contenedor, RDS, etc.) está fuera del alcance de esta guía.
 
 ## Tabla de contenidos
 
-1. [Prerrequisitos](#1-prerrequisitos)
-2. [Instalar PostgreSQL local](#2-instalar-postgresql-local)
+1. [Requisitos](#1-requisitos)
+2. [Preparar Postgres](#2-preparar-postgres)
 3. [Instalar Python y dbt](#3-instalar-python-y-dbt)
 4. [Clonar el proyecto](#4-clonar-el-proyecto)
 5. [Configurar `profiles.yml`](#5-configurar-profilesyml)
-6. [Verificar conexión y dependencias](#6-verificar-conexión-y-dependencias)
-7. [Verificar la capa de compatibilidad](#7-verificar-la-capa-de-compatibilidad)
-8. [Correr los modelos de ejemplo](#8-correr-los-modelos-de-ejemplo)
-9. [Correr el mismo proyecto contra Redshift](#9-correr-el-mismo-proyecto-contra-redshift)
-10. [Validar paridad de resultados](#10-validar-paridad-de-resultados)
-11. [Adaptar a tu proyecto productivo](#11-adaptar-a-tu-proyecto-productivo)
-12. [Troubleshooting](#12-troubleshooting)
+6. [Verificar la capa de compatibilidad](#6-verificar-la-capa-de-compatibilidad)
+7. [Correr el pipeline](#7-correr-el-pipeline)
+8. [Validar paridad contra Redshift](#8-validar-paridad-contra-redshift)
+9. [Usar como package en otro proyecto dbt](#9-usar-como-package-en-otro-proyecto-dbt)
+10. [Troubleshooting](#10-troubleshooting)
 
 ---
 
-## 1. Prerrequisitos
+## 1. Requisitos
 
-| Herramienta | Versión mínima | Cómo verificar |
+| Herramienta | Versión | Verificar |
 |---|---|---|
-| Python | 3.9 | `python3 --version` |
+| Python | 3.9+ | `python3 --version` |
 | pip | reciente | `pip3 --version` |
 | Git | cualquiera | `git --version` |
-| PostgreSQL | 14 | `psql --version` |
+| PostgreSQL | 14+ | accesible por red, con permisos de DDL |
 
-En **WSL Ubuntu / Linux**:
-
-```bash
-sudo apt update
-sudo apt install -y python3 python3-pip python3-venv git
-```
-
-En **macOS**:
-
-```bash
-brew install python git
-```
+Plataformas soportadas: macOS, Linux nativo, WSL Ubuntu, Windows nativo.
 
 ---
 
-## 2. Instalar PostgreSQL local
+## 2. Preparar Postgres
 
-### Opción A — WSL Ubuntu / Linux nativo
+Tenés que tener una base Postgres a la cual dbt pueda conectarse y crear schemas. Algunas opciones:
+
+### Postgres nativo en la máquina
 
 ```bash
+# Ubuntu/Debian/WSL
 sudo apt install -y postgresql postgresql-contrib
-sudo service postgresql start
+
+# macOS
+brew install postgresql@16
+brew services start postgresql@16
 ```
 
 Crear usuario y base:
 
 ```bash
-sudo -u postgres psql
-```
-
-Dentro del prompt `postgres=#`:
-
-```sql
+sudo -u postgres psql <<SQL
 CREATE USER dbt_dev WITH PASSWORD 'dbt_dev_pwd' SUPERUSER;
 CREATE DATABASE dbt_dev OWNER dbt_dev;
-\q
+SQL
 ```
 
-> Le damos `SUPERUSER` solo para que pueda crear funciones sin pelear con permisos. En productivo NO se hace así.
-
-Probar la conexión:
+### Postgres en un contenedor (Docker o Podman)
 
 ```bash
-psql -h localhost -U dbt_dev -d dbt_dev -c "select version();"
-```
+# Docker
+docker run -d --name pg-dbt \
+  -e POSTGRES_USER=dbt_dev \
+  -e POSTGRES_PASSWORD=dbt_dev_pwd \
+  -e POSTGRES_DB=dbt_dev \
+  -p 5432:5432 \
+  postgres:16
 
-### Opción B — macOS
-
-```bash
-brew install postgresql@16
-brew services start postgresql@16
-createuser -s dbt_dev
-createdb -O dbt_dev dbt_dev
-```
-
-### Opción C — Docker (si no querés instalar nada en el host)
-
-```bash
-docker run -d --name pg-dbt-local \
+# Podman (mismo comando, reemplazando docker por podman)
+podman run -d --name pg-dbt \
   -e POSTGRES_USER=dbt_dev \
   -e POSTGRES_PASSWORD=dbt_dev_pwd \
   -e POSTGRES_DB=dbt_dev \
@@ -98,323 +74,319 @@ docker run -d --name pg-dbt-local \
   postgres:16
 ```
 
+### Postgres remoto (RDS, gerenciado, etc.)
+
+Solo necesitás:
+- host alcanzable
+- credenciales
+- permiso para crear/dropear schemas (porque dbt los maneja)
+
+### Verificación
+
+```bash
+psql -h <host> -U <user> -d <db> -c "select version();"
+```
+
+Si conecta y muestra la versión, está OK.
+
 ---
 
 ## 3. Instalar Python y dbt
 
 ```bash
-# Crear entorno virtual fuera del proyecto (que vamos a clonar después)
-mkdir -p ~/dbt-workspace && cd ~/dbt-workspace
+# Crear venv en el proyecto (o donde prefieras)
 python3 -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate           # Linux/macOS/WSL
+# .venv\Scripts\activate            # Windows PowerShell
 
-# Instalar dbt
 pip install --upgrade pip
 pip install "dbt-core>=1.8" "dbt-postgres>=1.8" "dbt-redshift>=1.8"
 
 dbt --version
 ```
 
-> A partir de acá, **siempre que abras una terminal nueva, primero**: `source ~/dbt-workspace/.venv/bin/activate`
+Salida esperada (algo similar):
+```
+Core:
+  - installed: 1.8.x
+Plugins:
+  - postgres: 1.8.x
+  - redshift: 1.8.x
+```
+
+> Cada vez que abras una terminal nueva, primero: `source .venv/bin/activate`.
 
 ---
 
 ## 4. Clonar el proyecto
 
 ```bash
-cd ~/dbt-workspace
-git clone https://github.com/alejandrogenovese/fix_postgres_redshift_dbt.git galicia_dbt_compat
-cd galicia_dbt_compat
+git clone https://github.com/alejandrogenovese/fix_postgres_redshift_dbt.git
+cd fix_postgres_redshift_dbt
 ```
 
 Verificar la estructura:
 
 ```bash
 ls -la
-```
-
-Tendrías que ver:
-
-```
-.gitignore
-README.md
-INSTALACION.md
-dbt_project.yml
-packages.yml
-profiles.yml.example
-analyses/
-macros/
-models/
-seeds/
-snapshots/
-tests/
+# Tendría que ver: dbt_project.yml, packages.yml, profiles.yml.example,
+# README.md, INSTALACION.md, macros/, models/, seeds/, ...
 ```
 
 ---
 
 ## 5. Configurar `profiles.yml`
 
-dbt no lee credenciales del proyecto: las lee de `~/.dbt/profiles.yml` (fuera del repo, para no commitear secretos por accidente).
+dbt lee credenciales desde `~/.dbt/profiles.yml` (fuera del repo).
 
 ```bash
 mkdir -p ~/.dbt
 cp profiles.yml.example ~/.dbt/profiles.yml
 ```
 
-Editá `~/.dbt/profiles.yml` y dejá al menos el bloque `dev_postgres`. Si todavía no usás Redshift, podés borrar el bloque `dev_redshift` o dejarlo con las env vars vacías (no se va a romper hasta que intentes correr contra ese target).
+El template usa `env_var('POSTGRES_HOST', 'localhost')` con fallback. Hay dos formas de configurarlo:
+
+### Opción A — Editar `~/.dbt/profiles.yml` directamente
+
+Reemplazar el bloque `env_var(...)` por los valores fijos de tu entorno:
 
 ```yaml
-galicia_dbt_compat:
-  target: dev_postgres
-  outputs:
-    dev_postgres:
-      type: postgres
-      host: localhost
-      port: 5432
-      user: dbt_dev
-      password: dbt_dev_pwd
-      dbname: dbt_dev
-      schema: dbt_dev
-      threads: 4
-      sslmode: disable
+dev_postgres:
+  type: postgres
+  host: localhost           # o el host de tu Postgres
+  port: 5432
+  user: dbt_dev
+  password: dbt_dev_pwd
+  dbname: dbt_dev
+  schema: dbt_dev
+  threads: 4
+  sslmode: disable
 ```
 
----
+### Opción B — Exportar env vars (recomendado en CI o servidores)
 
-## 6. Verificar conexión y dependencias
-
-Desde la raíz del proyecto:
+Dejar `profiles.yml` con los `env_var(...)` y exportar antes de correr dbt:
 
 ```bash
-# Instalar dependencias dbt (dbt-utils)
-dbt deps
+export POSTGRES_HOST=localhost
+export POSTGRES_PORT=5432
+export POSTGRES_USER=dbt_dev
+export POSTGRES_PASSWORD=dbt_dev_pwd
+export POSTGRES_DB=dbt_dev
+export POSTGRES_SCHEMA=dbt_dev
+```
 
-# Verificar conexión Postgres
+> Si tu Postgres está en un contenedor y dbt corre en el host, el host suele ser `localhost` y el puerto el que mapeaste al ejecutar `docker run -p 5432:5432`. Si los dos corren en contenedores conectados por red, el host es el nombre del servicio o el alias de red.
+
+### Instalar dependencias dbt y verificar
+
+```bash
+dbt deps
 dbt debug
 ```
 
-Tiene que decir `All checks passed!`.
-
-Si algo falla, ir directo a [Troubleshooting](#12-troubleshooting).
+Salida esperada al final:
+```
+Connection test: [OK connection ok]
+All checks passed!
+```
 
 ---
 
-## 7. Verificar la capa de compatibilidad
+## 6. Verificar la capa de compatibilidad
 
-El `dbt_project.yml` tiene un hook `on-run-start` que instala las funciones SQL automáticamente cuando corrés cualquier comando dbt contra Postgres. Verificación manual:
+El `dbt_project.yml` tiene un hook `on-run-start` que instala automáticamente las funciones SQL en Postgres cuando ejecutás cualquier comando dbt. Verificación manual:
 
 ```bash
 dbt run-operation install_postgres_compat
 ```
 
-Esperás ver:
-
+Esperás:
 ```
 ✅ Capa de compatibilidad Postgres instalada
 ```
 
-Verificar directamente en Postgres:
+Verificar en Postgres que las funciones existan:
 
 ```bash
-psql -h localhost -U dbt_dev -d dbt_dev <<'EOF'
+psql -h $POSTGRES_HOST -U $POSTGRES_USER -d $POSTGRES_DB <<'EOF'
 \df getdate
 \df dateadd
 \df nvl
 \df json_extract_path_text
-EOF
-```
 
-Test funcional rápido:
-
-```bash
-psql -h localhost -U dbt_dev -d dbt_dev <<'EOF'
 SELECT
   getdate() AS ahora,
   dateadd('day', 7, getdate()) AS en_7_dias,
-  datediff('day', '2025-01-01'::timestamp, '2025-12-31'::timestamp) AS dias_del_anio,
-  nvl(NULL, 'fallback') AS nvl_test;
+  nvl(NULL::text, 'fallback') AS nvl_test;
 EOF
 ```
 
 ---
 
-## 8. Correr los modelos de ejemplo
+## 7. Correr el pipeline
 
 ```bash
-# Cargar datos de prueba
+# Cargar seed con datos de prueba
 dbt seed --select compat_test_users
 
 # Correr los 8 modelos de ejemplo
 dbt run --select tag:compat_examples
 
-# Correr los tests asociados
+# Correr los tests
 dbt test --select tag:compat_examples
 ```
 
-Si todo pasó:
-
+Salida esperada al final del `dbt test`:
 ```
 Completed successfully
 Done. PASS=N WARN=0 ERROR=0 SKIP=0 TOTAL=N
 ```
 
-Para inspeccionar los datos generados:
+Inspeccionar resultados:
 
 ```bash
-psql -h localhost -U dbt_dev -d dbt_dev <<'EOF'
+psql -h $POSTGRES_HOST -U $POSTGRES_USER -d $POSTGRES_DB <<'EOF'
+\dt dbt_dev.*
 SELECT * FROM dbt_dev.example_dates LIMIT 3;
-SELECT * FROM dbt_dev.example_nulls LIMIT 3;
 SELECT * FROM dbt_dev.example_aggregations;
 EOF
 ```
 
-> Recomendación: leer los `models/examples/example_*.sql` en el orden que sugiere `models/examples/schema.yml`. Los comentarios pedagógicos cubren cada macro.
+> Recomendación: leer los modelos en `models/examples/` en orden — los comentarios pedagógicos cubren cada macro.
 
 ---
 
-## 9. Correr el mismo proyecto contra Redshift
+## 8. Validar paridad contra Redshift
 
-Una vez que validaste en Postgres, hacé exactamente lo mismo apuntando al target Redshift:
+Una vez validado en Postgres, repetir el mismo pipeline contra Redshift. Exportar credenciales:
 
 ```bash
-export REDSHIFT_HOST=galicia-dev.xxxx.redshift.amazonaws.com
+export REDSHIFT_HOST=tu-cluster.xxxx.redshift.amazonaws.com
 export REDSHIFT_USER=tu_usuario
 export REDSHIFT_PWD='tu_password'
+export REDSHIFT_DB=dev
+export REDSHIFT_SCHEMA="${USER}_dev"
+```
 
-dbt debug --target dev_redshift   # verificar conexión primero
+Correr:
+
+```bash
 dbt seed --select compat_test_users --target dev_redshift
 dbt run --select tag:compat_examples --target dev_redshift
 dbt test --select tag:compat_examples --target dev_redshift
 ```
 
-Si los modelos compilaron y los tests pasan en ambos motores → la capa cross-db está cumpliendo su función.
+Si los modelos compilan y los tests pasan en ambos motores → la capa cross-db está cumpliendo su función.
 
-> Tip: agregar `--target dev_redshift` a cada comando se vuelve molesto. Alternativa: cambiar `target: dev_postgres` a `target: dev_redshift` en `~/.dbt/profiles.yml` cuando trabajés mayormente contra Redshift.
-
----
-
-## 10. Validar paridad de resultados
-
-```bash
-mkdir -p compare/postgres compare/redshift
-
-# Postgres
-for m in example_dates example_nulls example_strings example_regex \
-         example_aggregations example_json example_unnest example_types; do
-  psql -h localhost -U dbt_dev -d dbt_dev -c \
-    "\COPY (select * from dbt_dev.${m} order by 1) TO 'compare/postgres/${m}.csv' WITH CSV HEADER"
-done
-
-# Redshift
-for m in example_dates example_nulls example_strings example_regex \
-         example_aggregations example_json example_unnest example_types; do
-  psql "host=$REDSHIFT_HOST port=5439 dbname=dev user=$REDSHIFT_USER password=$REDSHIFT_PWD sslmode=require" -c \
-    "\COPY (select * from ${USER}_dev.${m} order by 1) TO 'compare/redshift/${m}.csv' WITH CSV HEADER"
-done
-
-# Diff
-diff -r compare/postgres compare/redshift | less
-```
-
-Diferencias esperadas (timestamps de run, precisión numérica, HLL approx) están documentadas inline en cada `example_*.sql`.
+Para comparación granular de resultados (CSV diff), ver el bloque `Comparar paridad` del README.
 
 ---
 
-## 11. Adaptar a tu proyecto productivo
+## 9. Usar como package en otro proyecto dbt
 
-Cuando termines de validar acá, integrar en tu proyecto dbt principal:
+En el proyecto destino, agregar al `packages.yml`:
 
-### Opción A — Copiar las macros (rápido, no auto-actualiza)
-
-```bash
-cp -r macros/compat /tu/proyecto/macros/
-cp -r macros/cross_db /tu/proyecto/macros/
+```yaml
+packages:
+  - git: "https://github.com/alejandrogenovese/fix_postgres_redshift_dbt.git"
+    revision: main   # o un tag versionado
 ```
 
-Y agregar al `dbt_project.yml` de tu proyecto:
+Después: `dbt deps`.
+
+Y en el `dbt_project.yml` del proyecto destino, agregar el hook:
 
 ```yaml
 on-run-start:
   - "{{ install_postgres_compat() }}"
 ```
 
-### Opción B — Como package dbt (productivo, recomendado)
-
-En el `packages.yml` de tu proyecto:
-
-```yaml
-packages:
-  - git: "https://github.com/alejandrogenovese/fix_postgres_redshift_dbt.git"
-    revision: main   # o un tag específico cuando saques release
-```
-
-Después: `dbt deps`.
-
-> ⚠ Con la opción B las macros quedan namespaced. `{{ median(col) }}` se transforma en `{{ galicia_dbt_compat.median(col) }}` (o como esté seteado el name del package). En el `dispatch` de dbt podés re-exportarlas sin namespace si querés.
+> Cuando se usa como package, las macros quedan namespaced. `{{ median(col) }}` se vuelve `{{ galicia_dbt_compat.median(col) }}`. Para invocar sin namespace, configurar `dispatch` en el `dbt_project.yml` del proyecto destino.
 
 ---
 
-## 12. Troubleshooting
+## 10. Troubleshooting
+
+### `Could not find profile named 'galicia_dbt_compat'`
+
+`profiles.yml` no está en `~/.dbt/`. Solución:
+
+```bash
+mkdir -p ~/.dbt
+cp profiles.yml.example ~/.dbt/profiles.yml
+dbt debug
+```
+
+### `connection refused` en `dbt debug`
+
+dbt no puede llegar al host. Verificar:
+
+```bash
+# El host en profiles.yml apunta a donde debe
+grep -E "host|port" ~/.dbt/profiles.yml
+
+# Postgres está escuchando
+psql -h <host> -U <user> -d <db> -c "select 1;"
+
+# Si Postgres está en un contenedor: ¿está corriendo? ¿está mapeado el puerto?
+docker ps   # o: podman ps
+```
 
 ### `function getdate() does not exist`
 
-La capa de compatibilidad no se instaló. Verificá:
-
-1. Que `on-run-start` esté en `dbt_project.yml`.
-2. Que el usuario tenga permiso para crear funciones (debe ser owner de la DB o superuser).
-3. Corré manualmente: `dbt run-operation install_postgres_compat`.
-
-### `permission denied for schema public`
+La capa de compatibilidad no se instaló. Verificar:
 
 ```bash
-sudo -u postgres psql -c "ALTER DATABASE dbt_dev OWNER TO dbt_dev;"
-sudo -u postgres psql -d dbt_dev -c "GRANT ALL ON SCHEMA public TO dbt_dev;"
+# Que el hook esté en dbt_project.yml
+grep -A1 "on-run-start" dbt_project.yml
+
+# Forzar instalación
+dbt run-operation install_postgres_compat
 ```
 
-### El `on-run-start` corre cada vez y es lento
+### `permission denied` al crear funciones en Postgres
 
-Las funciones usan `CREATE OR REPLACE`, así que es idempotente y rápido (~100ms). Si te molesta, comentar el hook y correr `dbt run-operation install_postgres_compat` solo cuando hagas pull de cambios al repo.
+El usuario no tiene permisos de DDL. Solución (como superuser):
+
+```sql
+ALTER USER dbt_dev WITH SUPERUSER;
+-- o más restrictivo:
+GRANT CREATE ON SCHEMA public TO dbt_dev;
+```
 
 ### Error en Redshift: `syntax error at or near 'concat_n'`
 
-`concat_n` es el nombre de la macro Jinja, no de una función SQL. Si ves ese error es porque te olvidaste las llaves `{{ }}`.
+`concat_n` es macro Jinja, no función SQL. Falta `{{ }}`:
 
-Mal: `select concat_n(first_name, ' ', last_name) from users`
-Bien: `select {{ concat_n('first_name', "' '", 'last_name') }} from users`
+```sql
+-- Mal
+select concat_n(first_name, ' ', last_name)
+
+-- Bien
+select {{ concat_n('first_name', "' '", 'last_name') }}
+```
 
 ### `dbt seed` falla con encoding
 
-Asegurate que los CSV estén en UTF-8:
+Verificar UTF-8:
 
 ```bash
 file seeds/*.csv
+# tendría que decir: UTF-8 Unicode text
 ```
 
-Tendrían que decir `UTF-8 Unicode text`.
+### Las funciones de Postgres se "perdieron" después de drop schema
 
-### Las funciones de Postgres se "perdieron"
-
-Si dropeaste y recreaste la DB, reinstalalas:
+Si dropeaste y recreaste la base/schema, reinstalá:
 
 ```bash
 dbt run-operation install_postgres_compat
 ```
 
-### `dbt deps` falla con `git not found`
+### Quiero deshacer todo en Postgres
 
-```bash
-sudo apt install git    # WSL/Linux
-brew install git        # macOS
-```
-
-### `dbt debug` falla contra Redshift por SSL
-
-Verificar que `sslmode: require` esté en el bloque `dev_redshift` del profiles.yml.
-
-### Quiero deshacer todo en Postgres local
-
-```bash
-psql -h localhost -U dbt_dev -d dbt_dev <<'EOF'
+```sql
 DROP SCHEMA dbt_dev CASCADE;
 CREATE SCHEMA dbt_dev;
 
@@ -446,19 +418,7 @@ DROP FUNCTION IF EXISTS json_extract_path_text(text, text, text) CASCADE;
 DROP FUNCTION IF EXISTS json_extract_path_text(text, text, text, text) CASCADE;
 DROP FUNCTION IF EXISTS json_extract_array_element_text(text, int) CASCADE;
 DROP FUNCTION IF EXISTS json_array_length(text) CASCADE;
-EOF
 ```
-
----
-
-## Próximos pasos
-
-Cuando ya validaste localmente:
-
-1. **Sumar el package al proyecto dbt productivo**: opción B del paso 11.
-2. **SQLFluff con reglas custom**: enforcement de las convenciones (no `TEXT`, no operadores `->>`, etc.).
-3. **CI**: pipeline que corra `dbt run` y `dbt test` en ambos targets contra el mismo set de modelos críticos.
-4. **Sampling de paridad**: extender `export_compat_results.sql` para muestreo aleatorio en modelos de alto volumen.
 
 ---
 

@@ -1,4 +1,4 @@
-# dbt
+# dbt artefactos
 target/
 dbt_packages/
 logs/

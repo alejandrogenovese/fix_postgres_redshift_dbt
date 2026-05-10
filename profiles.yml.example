@@ -1,37 +1,38 @@
 # profiles.yml.example
 # ============================================================
-# Copiar a ~/.dbt/profiles.yml y ajustar credenciales.
-# ============================================================
-# Linux/macOS:
-#   cp profiles.yml.example ~/.dbt/profiles.yml
-# Windows (PowerShell):
-#   Copy-Item profiles.yml.example "$HOME\.dbt\profiles.yml"
+# Plantilla de conexiones. Copiar a:
+#   - Linux/macOS:  ~/.dbt/profiles.yml
+#   - Windows:      %USERPROFILE%\.dbt\profiles.yml
+#
+# Todos los valores se pueden override con env vars. Si la env var
+# no existe, usa el fallback que está como segundo argumento.
 # ============================================================
 
 galicia_dbt_compat:
-  target: dev_postgres   # target por defecto
+  target: dev_postgres
 
   outputs:
 
-    # ─── Postgres local ──────────────────────────────────────
+    # ─── Postgres ────────────────────────────────────────────
+    # Adaptativo según las env vars POSTGRES_*.
+    # Defaults pensados para Postgres local en localhost:5432.
     dev_postgres:
       type: postgres
-      host: localhost
-      port: 5432
-      user: dbt_dev
-      password: dbt_dev_pwd       # cambiar en tu entorno
-      dbname: dbt_dev
-      schema: dbt_dev
+      host: "{{ env_var('POSTGRES_HOST', 'localhost') }}"
+      port: "{{ env_var('POSTGRES_PORT', '5432') | int }}"
+      user: "{{ env_var('POSTGRES_USER', 'dbt_dev') }}"
+      password: "{{ env_var('POSTGRES_PASSWORD', 'dbt_dev_pwd') }}"
+      dbname: "{{ env_var('POSTGRES_DB', 'dbt_dev') }}"
+      schema: "{{ env_var('POSTGRES_SCHEMA', 'dbt_dev') }}"
       threads: 4
-      keepalives_idle: 0
       sslmode: disable
 
-    # ─── Redshift dev (Banco Galicia) ────────────────────────
-    # Usa variables de entorno para no commitear credenciales.
-    # Antes de usar:
-    #   export REDSHIFT_HOST=galicia-dev.xxxx.redshift.amazonaws.com
+    # ─── Redshift dev ────────────────────────────────────────
+    # Antes de usar, exportar:
+    #   export REDSHIFT_HOST=tu-cluster.xxxx.redshift.amazonaws.com
     #   export REDSHIFT_USER=tu_usuario
     #   export REDSHIFT_PWD='tu_password'
+    #   export REDSHIFT_SCHEMA="${USER}_dev"
     dev_redshift:
       type: redshift
       host: "{{ env_var('REDSHIFT_HOST') }}"
@@ -39,20 +40,7 @@ galicia_dbt_compat:
       user: "{{ env_var('REDSHIFT_USER') }}"
       password: "{{ env_var('REDSHIFT_PWD') }}"
       dbname: "{{ env_var('REDSHIFT_DB', 'dev') }}"
-      schema: "{{ env_var('USER') }}_dev"
+      schema: "{{ env_var('REDSHIFT_SCHEMA') }}"
       threads: 4
       ra3_node: true
       sslmode: require
-
-    # ─── Redshift via IAM (alternativa más segura) ───────────
-    # dev_redshift_iam:
-    #   type: redshift
-    #   method: iam
-    #   cluster_id: galicia-dev
-    #   host: galicia-dev.xxxx.redshift.amazonaws.com
-    #   port: 5439
-    #   dbname: dev
-    #   user: "{{ env_var('USER') }}"
-    #   schema: "{{ env_var('USER') }}_dev"
-    #   threads: 4
-    #   ra3_node: true
