@@ -1,0 +1,87 @@
+{
+  // ─────────────────────────────────────────────────────────
+  // Configuración Dev Container para VS Code
+  // ─────────────────────────────────────────────────────────
+  // Cómo usar:
+  //   1. En tu Mac, instalar la extensión "Dev Containers" en VS Code:
+  //      code --install-extension ms-vscode-remote.remote-containers
+  //   2. Abrir el proyecto:  code .
+  //   3. Cuando VS Code muestre el toast "Reopen in Container", click.
+  //      (O: Cmd+Shift+P → "Dev Containers: Reopen in Container")
+  //   4. La primera vez tarda unos minutos (build del image + extensiones).
+  // ─────────────────────────────────────────────────────────
+
+  "name": "galicia_dbt_compat",
+
+  // Usamos el docker-compose.yml del proyecto. El servicio "dev" tiene
+  // Python+dbt y comparte network con postgres.
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "dev",
+  "workspaceFolder": "/workspace",
+  "remoteUser": "vscode",
+
+  // Que el container postgres también se levante.
+  "runServices": ["postgres", "dev"],
+
+  // Al cerrar VS Code, parar todo el stack (postgres + dev).
+  "shutdownAction": "stopCompose",
+
+  // ─────────────────────────────────────────────────────────
+  // Setup automático al crear el container
+  // ─────────────────────────────────────────────────────────
+  // Copia profiles.yml.example a ~/.dbt/, instala packages, y
+  // chequea conexión.
+  "postCreateCommand": "bash -c 'mkdir -p ~/.dbt && cp profiles.yml.example ~/.dbt/profiles.yml && dbt deps && dbt debug || true'",
+
+  // ─────────────────────────────────────────────────────────
+  // Customizaciones de VS Code dentro del container
+  // ─────────────────────────────────────────────────────────
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "samuelcolvin.jinjahtml",
+        "mtxr.sqltools",
+        "mtxr.sqltools-driver-pg",
+        "redhat.vscode-yaml",
+        "ms-python.python"
+      ],
+
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "files.associations": {
+          "*.sql": "jinja-sql",
+          "schema.yml": "yaml",
+          "dbt_project.yml": "yaml",
+          "profiles.yml": "yaml"
+        },
+        "files.trimTrailingWhitespace": true,
+        "files.insertFinalNewline": true,
+        "files.exclude": {
+          "**/target": true,
+          "**/dbt_packages": true,
+          "**/__pycache__": true,
+          "**/.DS_Store": true
+        },
+        "editor.tabSize": 2,
+        "[sql]": { "editor.tabSize": 4 },
+        "[jinja-sql]": { "editor.tabSize": 4 },
+        "terminal.integrated.defaultProfile.linux": "bash",
+
+        // SQLTools: conexión pre-configurada al postgres del compose.
+        // El password se pide la primera vez y se guarda en el keychain.
+        "sqltools.connections": [
+          {
+            "name": "Local Postgres (devcontainer)",
+            "driver": "PostgreSQL",
+            "previewLimit": 50,
+            "server": "postgres",
+            "port": 5432,
+            "database": "dbt_dev",
+            "username": "dbt_dev",
+            "askForPassword": true
+          }
+        ]
+      }
+    }
+  }
+}

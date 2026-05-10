@@ -1,0 +1,59 @@
+# docker-compose.yml
+# ============================================================
+# Stack de desarrollo:
+#   - postgres: Postgres 16 para correr modelos
+#   - dev:      Container con Python + dbt al que se conecta tu
+#               VS Code local vía Dev Containers.
+# ============================================================
+
+services:
+
+  postgres:
+    image: postgres:16
+    container_name: galicia_dbt_pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: dbt_dev
+      POSTGRES_PASSWORD: dbt_dev_pwd
+      POSTGRES_DB: dbt_dev
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C.UTF-8"
+    command: >
+      postgres
+      -c shared_buffers=256MB
+      -c max_connections=50
+      -c log_statement=none
+      -c log_min_duration_statement=1000
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - galicia_dbt_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dbt_dev -d dbt_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  dev:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+    image: galicia-dbt-dev:latest
+    container_name: galicia_dbt_dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+    volumes:
+      # Único bind: el proyecto. Los archivos viven en tu Mac.
+      # ~/.dbt vive solo dentro del container — postCreateCommand lo recrea.
+      # dbt_packages vive dentro del bind del workspace, sin volumen separado.
+      - .:/workspace:cached
+    working_dir: /workspace
+    command: sleep infinity
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  galicia_dbt_pgdata:
+    name: galicia_dbt_pgdata
