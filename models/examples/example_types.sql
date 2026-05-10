@@ -25,6 +25,12 @@
 -- ============================================================
 -- Estas macros se usan típicamente en ::cast inline o en config()
 -- de modelos. Acá las mostramos como cast en SELECT.
+--
+-- NOTA: en este archivo, NO incluimos ejemplos de uso adentro de
+-- comentarios SQL (--), porque los macros generan whitespace que
+-- al expandir Jinja rompe el comentario en múltiples líneas y
+-- termina inyectando SQL real. Para ver ejemplos de uso:
+-- README.md o models/examples/schema.yml.
 
 with cast_demo as (
 
@@ -32,25 +38,16 @@ with cast_demo as (
         u.id,
         u.first_name,
 
-        -- ─── varchar_safe(n_chars) → varchar(n*4) ────────────
+        -- varchar_safe(n_chars) -> varchar(n*4)
         -- Aplica el factor x4 para cubrir UTF-8 multibyte.
-        -- Uso típico (en modelos productivos):
-        --   {{ config(materialized='table') }}
-        --   select first_name::{{ varchar_safe(50) }} as first_name
         u.first_name::{{ varchar_safe(50) }} as first_name_safe50,
 
-        -- ─── varchar_exact(n) → varchar(n) ───────────────────
-        -- Tamaño exacto sin factor.
-        -- ⚠ Significa cosas distintas en cada motor:
-        --    Postgres: 100 caracteres
-        --    Redshift: 100 bytes (≈25 caracteres si todo es multibyte)
+        -- varchar_exact(n) -> varchar(n)
+        -- Tamaño exacto sin factor. ATENCION: significa BYTES en
+        -- Redshift y CARACTERES en Postgres (riesgo silencioso).
         u.first_name::{{ varchar_exact(100) }} as first_name_exact100,
 
-        -- ─── varchar_max() → varchar(max) o varchar(65535) ───
-        -- Equivalente al "tamaño máximo".
-        -- Redshift: varchar(max) literal.
-        -- Postgres: 65535 (no tiene MAX nominal).
-        -- Uso: campos descriptivos largos donde no podés acotar el tamaño.
+        -- varchar_max() -> varchar(max) en Redshift, varchar(65535) en Postgres
         u.first_name::{{ varchar_max() }} as first_name_unbounded
 
     from {{ ref('compat_test_users') }} u
@@ -60,8 +57,6 @@ with cast_demo as (
 -- ============================================================
 -- PARTE 2: TRY_CAST tolerantes (DML)
 -- ============================================================
--- Datos de prueba con strings sucios para ejercitar los casts
--- defensivos.
 dirty_data as (
 
     select '123.45'        as price_str, '2025-01-15' as date_str, 'true'  as bool_str union all
@@ -79,37 +74,30 @@ casts_applied as (
     select
         price_str,
 
-        -- ─── try_cast_numeric(col) → numeric or NULL ─────────
-        -- Castea a numeric solo si el string es un número válido,
-        -- sino devuelve NULL (no falla el modelo).
-        -- Implementación: regex check + cast.
-        -- ⚠ No quita espacios; envolver en trim() si el dato es sucio.
+        -- try_cast_numeric(col) -> numeric o NULL si no parsea.
+        -- Implementacion: regex check + cast. Util para datos sucios.
         {{ try_cast_numeric('trim(price_str)') }} as price_numeric,
 
         date_str,
 
-        -- ─── try_cast_date(col, format) ──────────────────────
-        -- Castea a date con formato dado (ISO por default).
-        -- ⚠ La emulación Postgres es básica: usa ::date directo.
-        -- Redshift soporta to_date() con formato.
-        -- Para formatos no-ISO (DDMMYYYY, etc.) extender la macro.
-        {{ try_cast_date('nullif(trim(date_str), \'\')') }} as date_casted,
+        -- try_cast_date(col, format) -> date o NULL.
+        -- La emulacion en Postgres es basica (cast directo a ::date).
+        -- Para formatos no-ISO extender la macro.
+        {{ try_cast_date("nullif(trim(date_str), '')") }} as date_casted,
 
         bool_str,
 
-        -- ─── to_boolean(col) → boolean ───────────────────────
-        -- Mapea texto a boolean con tolerancia:
-        --   true:  't', 'true', '1', 'y', 'yes'
-        --   false: 'f', 'false', '0', 'n', 'no'
-        --   resto: NULL
-        -- Útil cuando ingestás CSVs con criterios booleanos heterogéneos.
+        -- to_boolean(col) -> boolean con tolerancia.
+        -- true: 't', 'true', '1', 'y', 'yes'
+        -- false: 'f', 'false', '0', 'n', 'no'
+        -- otros: NULL
         {{ to_boolean('bool_str') }} as bool_casted
 
     from dirty_data
 
 )
 
--- Materializamos ambas partes para inspección
+-- Materializamos ambas partes para inspeccion
 select
     'cast_ddl' as demo_type,
     id::varchar as ref,
