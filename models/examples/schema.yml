@@ -1,0 +1,130 @@
+version: 2
+
+models:
+
+  - name: example_dates
+    description: |
+      Ejercita TODAS las macros de cross_db/dates.sql:
+      getdate, sysdate, ts_literal, add_months, months_between,
+      months_between_decimal, convert_timezone, convert_timezone_2,
+      trunc_to_date, date_part_xdb. Más dbt-core: dateadd, datediff, last_day.
+    config:
+      tags: [compat_examples]
+    columns:
+      - name: id
+        tests: [unique, not_null]
+      - name: signup_at
+        tests: [not_null]
+      - name: run_ts
+        tests: [not_null]
+      - name: months_since_signup_int
+        description: "Cantidad de meses transcurridos. >= 0 para signups del pasado."
+      - name: signup_year
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 2024
+              max_value: 2030
+
+  - name: example_nulls
+    description: |
+      Ejercita TODAS las macros de cross_db/nulls.sql:
+      nvl, nvl2, decode, nullif_xdb, greatest_xdb, least_xdb.
+    config:
+      tags: [compat_examples]
+    columns:
+      - name: id
+        tests: [unique, not_null]
+      - name: email_or_default
+        tests: [not_null]
+      - name: balance_flag
+        tests:
+          - accepted_values:
+              values: ['has_balance', 'no_balance']
+      - name: status_name
+        tests:
+          - accepted_values:
+              values: ['Active', 'Inactive', 'Pending', 'Unknown']
+
+  - name: example_strings
+    description: |
+      Ejercita TODAS las macros de cross_db/strings.sql:
+      len, charindex, concat_n, listagg, listagg_distinct,
+      split_part_xdb, left_xdb, right_xdb, lpad_xdb, rpad_xdb,
+      quote_literal_xdb.
+    config:
+      tags: [compat_examples]
+    columns:
+      - name: country_code
+        tests: [unique, not_null]
+      - name: users_count
+        tests: [not_null]
+      - name: users_alphabetical
+        tests: [not_null]
+
+  - name: example_regex
+    description: |
+      Ejercita TODAS las macros de cross_db/regex.sql:
+      regexp_substr, regexp_count, regexp_instr,
+      regexp_replace_xdb, regexp_matches_xdb.
+    config:
+      tags: [compat_examples]
+    columns:
+      - name: id
+        tests: [unique, not_null]
+      - name: is_valid_email_format
+        tests: [not_null]
+
+  - name: example_aggregations
+    description: |
+      Ejercita TODAS las macros de cross_db/aggregations.sql:
+      median, percentile_cont, percentile_disc,
+      approximate_count_distinct, ratio_to_report,
+      stddev_samp_xdb, stddev_pop_xdb, corr_xdb.
+    config:
+      tags: [compat_examples]
+    columns:
+      - name: country_code
+        tests: [unique, not_null]
+      - name: median_balance
+        tests: [not_null]
+
+  - name: example_json
+    description: |
+      Ejercita TODAS las macros de cross_db/json.sql:
+      json_parse, json_extract_path_text, json_extract_array_element_text,
+      json_path, is_valid_json, is_valid_json_array,
+      json_typeof, json_array_length.
+    config:
+      tags: [compat_examples]
+    columns:
+      - name: source
+        tests:
+          - accepted_values:
+              values: ['user', 'array']
+      - name: id
+        tests: [not_null]
+
+  - name: example_unnest
+    description: |
+      Ejercita TODAS las macros de cross_db/unnest.sql:
+      array_literal, object_construct, unnest_array.
+    config:
+      tags: [compat_examples]
+    columns:
+      - name: demo_type
+        tests:
+          - accepted_values:
+              values: ['array_literal', 'object_construct', 'unnest_macro', 'unnest_tags']
+
+  - name: example_types
+    description: |
+      Ejercita TODAS las macros de cross_db/types.sql:
+      varchar_safe, varchar_exact, varchar_max,
+      try_cast_numeric, try_cast_date, to_boolean.
+    config:
+      tags: [compat_examples]
+    columns:
+      - name: demo_type
+        tests:
+          - accepted_values:
+              values: ['cast_ddl', 'try_cast']

@@ -1,0 +1,17 @@
+version: 2
+
+seeds:
+  - name: compat_test_users
+    description: "Datos sintéticos para testear macros cross-db. Cubre nulls, multibyte, JSON inválido, listas variables."
+    config:
+      column_types:
+        id: integer
+        first_name: varchar(100)
+        last_name: varchar(100)
+        email: varchar(200)
+        signup_at: timestamp
+        country_code: varchar(2)
+        balance: numeric(10,2)
+        tags_csv: varchar(500)
+        payload_json: varchar(2000)
+        status_code: varchar(1)

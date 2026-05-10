@@ -1,0 +1,27 @@
+# dbt
+target/
+dbt_packages/
+logs/
+.user.yml
+
+# Credenciales — NUNCA commitear
+profiles.yml
+.env
+*.env
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Outputs de comparación
+compare/
+*.csv.tmp

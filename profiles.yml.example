@@ -1,0 +1,58 @@
+# profiles.yml.example
+# ============================================================
+# Copiar a ~/.dbt/profiles.yml y ajustar credenciales.
+# ============================================================
+# Linux/macOS:
+#   cp profiles.yml.example ~/.dbt/profiles.yml
+# Windows (PowerShell):
+#   Copy-Item profiles.yml.example "$HOME\.dbt\profiles.yml"
+# ============================================================
+
+galicia_dbt_compat:
+  target: dev_postgres   # target por defecto
+
+  outputs:
+
+    # ─── Postgres local ──────────────────────────────────────
+    dev_postgres:
+      type: postgres
+      host: localhost
+      port: 5432
+      user: dbt_dev
+      password: dbt_dev_pwd       # cambiar en tu entorno
+      dbname: dbt_dev
+      schema: dbt_dev
+      threads: 4
+      keepalives_idle: 0
+      sslmode: disable
+
+    # ─── Redshift dev (Banco Galicia) ────────────────────────
+    # Usa variables de entorno para no commitear credenciales.
+    # Antes de usar:
+    #   export REDSHIFT_HOST=galicia-dev.xxxx.redshift.amazonaws.com
+    #   export REDSHIFT_USER=tu_usuario
+    #   export REDSHIFT_PWD='tu_password'
+    dev_redshift:
+      type: redshift
+      host: "{{ env_var('REDSHIFT_HOST') }}"
+      port: 5439
+      user: "{{ env_var('REDSHIFT_USER') }}"
+      password: "{{ env_var('REDSHIFT_PWD') }}"
+      dbname: "{{ env_var('REDSHIFT_DB', 'dev') }}"
+      schema: "{{ env_var('USER') }}_dev"
+      threads: 4
+      ra3_node: true
+      sslmode: require
+
+    # ─── Redshift via IAM (alternativa más segura) ───────────
+    # dev_redshift_iam:
+    #   type: redshift
+    #   method: iam
+    #   cluster_id: galicia-dev
+    #   host: galicia-dev.xxxx.redshift.amazonaws.com
+    #   port: 5439
+    #   dbname: dev
+    #   user: "{{ env_var('USER') }}"
+    #   schema: "{{ env_var('USER') }}_dev"
+    #   threads: 4
+    #   ra3_node: true

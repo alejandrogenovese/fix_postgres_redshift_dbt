@@ -1,0 +1,9 @@
+id,first_name,last_name,email,signup_at,country_code,balance,tags_csv,payload_json,status_code
+1,Juan,Pérez,juan.perez@example.com,2025-01-15 10:30:00,AR,1500.50,"premium,active,verified","{""user"":{""tier"":""gold"",""address"":{""city"":""Buenos Aires"",""country"":""AR""}}}",A
+2,María,González,maria.gonzalez@example.com,2025-02-20 14:45:00,UY,2300.75,"premium,active","{""user"":{""tier"":""platinum"",""address"":{""city"":""Montevideo"",""country"":""UY""}}}",A
+3,Carlos,Rodríguez,carlos.rodriguez@example.com,2024-11-05 09:15:00,AR,500.00,"basic","{""user"":{""tier"":""silver"",""address"":{""city"":""Córdoba"",""country"":""AR""}}}",I
+4,Ana,Martínez,,2025-03-10 18:00:00,AR,,"basic,trial","",P
+5,Diego,López,diego.lopez@example.com,2025-04-01 12:00:00,CL,3500.00,"premium,vip,active,verified,priority","{""user"":{""tier"":""platinum"",""address"":{""city"":""Santiago"",""country"":""CL""}}}",A
+6,Sofía,Fernández,sofia.fernandez@example.com,2024-12-25 23:59:00,AR,750.25,"basic,active","invalid_json_here",A
+7,Roberto,Sánchez,roberto.sanchez@example.com,2025-05-15 08:00:00,BR,1200.00,"premium","{""user"":{""tier"":""gold""}}",A
+8,Laura,Gómez,laura.gomez@example.com,2025-06-01 16:30:00,AR,0.00,,,I
