@@ -1,34 +1,69 @@
-# galicia_dbt_compat
+# fix_postgres_redshift_dbt
 
-Capa de compatibilidad cross-db **Postgres ↔ Redshift** para dbt. Pensada para el contexto de migración Teradata → Redshift de Banco Galicia.
+[![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/downloads/)
+[![dbt 1.8+](https://img.shields.io/badge/dbt-1.8%2B-4A154B.svg)](https://docs.getdbt.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Maintained: Yes](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/alejandrogenovese/fix_postgres_redshift_dbt)
 
-Permite desarrollar y testear modelos dbt en Postgres y promoverlos a Redshift sin reescribir las consultas.
+Capa de compatibilidad cross-db **Postgres ↔ Redshift** para dbt. Permite desarrollar y testear modelos dbt en Postgres y promoverlos a Redshift sin reescribir las consultas.
 
-## Cómo funciona
+Diseñada para contextos de migración **Teradata → Redshift** (Banco Galicia).
 
-Los modelos invocan macros como `{{ median(col) }}` o `{{ nvl(a, b) }}`. Al compilar:
+---
 
-- Contra **Postgres** → renderiza la equivalencia (`coalesce(a, b)`, `percentile_cont(0.5)`, etc.) y se apoya en una capa SQL de funciones (`getdate`, `dateadd`, `nvl`...) que el proyecto instala automáticamente en la base con un hook `on-run-start`.
-- Contra **Redshift** → renderiza las funciones nativas (`nvl(a, b)`, `median(col)`).
+## 📋 Tabla de contenidos
 
-El SQL final es distinto, el resultado es equivalente.
+- [Características](#-características)
+- [Requisitos](#-requisitos)
+- [Quickstart](#-quickstart)
+- [Estructura](#-estructura)
+- [Cobertura de macros](#-cobertura-de-macros)
+- [Cómo funciona](#-cómo-funciona)
+- [Uso en otro proyecto dbt](#-uso-en-otro-proyecto-dbt)
+- [Limitaciones conocidas](#-limitaciones-conocidas)
+- [Troubleshooting](#-troubleshooting)
+- [Recursos](#-recursos)
+- [Contribuir](#-contribuir)
+- [Licencia](#-licencia)
 
-## Requisitos
+---
 
-- Python 3.9+
-- dbt-core ≥ 1.8 con adapters `dbt-postgres` y `dbt-redshift`
-- Una base Postgres accesible (local, contenedor, o remota)
-- Credenciales a un Redshift dev (opcional, para promoción)
+## ✨ Características
 
-> El runtime que uses para correr la base (Postgres nativo, Docker, Podman, RDS, etc.) es irrelevante para el proyecto. Solo importa que dbt pueda conectarse al host configurado.
+- **57 macros Jinja** cross-db organizadas en 8 categorías
+- **100% cobertura** de macros con modelos de ejemplo
+- **Capa SQL automática** en Postgres que emula Redshift
+- **Uso como package** en otros proyectos dbt
+- **Soporte multi-plataforma**: macOS, Linux, WSL, Windows
+- **Runtimes flexibles**: Postgres nativo, Docker, Podman, RDS
+- **Herramientas para comparar paridad** entre motores (CSV diff)
+- **Documentación completa** con comentarios pedagógicos
 
-## Quickstart
+---
+
+## 🔧 Requisitos
+
+| Herramienta | Versión | Verificar |
+|---|---|---|
+| Python | 3.9+ | `python3 --version` |
+| pip | reciente | `pip3 --version` |
+| Git | cualquiera | `git --version` |
+| dbt-core | 1.8+ | `dbt --version` |
+| dbt-postgres | 1.8+ | `dbt --version` |
+| dbt-redshift | 1.8+ | `dbt --version` |
+| PostgreSQL | 14+ | accesible por red |
+
+---
+
+## 🚀 Quickstart
+
+> **Si tu entorno ya tiene Python y dbt instalados**, saltar el paso 1 y entrar al directorio del proyecto desde donde ejecutas dbt.
 
 ```bash
 git clone https://github.com/alejandrogenovese/fix_postgres_redshift_dbt.git
 cd fix_postgres_redshift_dbt
 
-# 1. Crear venv e instalar dbt
+# 1. (Opcional) Python+dbt en venv local
 python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
@@ -49,9 +84,11 @@ dbt run --select tag:compat_examples
 dbt test --select tag:compat_examples
 ```
 
-> **Setup detallado:** ver [INSTALACION.md](INSTALACION.md).
+**Setup detallado:** ver [INSTALACION.md](INSTALACION.md)
 
-## Estructura
+---
+
+## 📁 Estructura
 
 ```
 .
@@ -93,34 +130,38 @@ dbt test --select tag:compat_examples
     └── properties.yml
 ```
 
-## Cobertura de macros
+---
 
-| Categoría | Cantidad | Modelo de ejemplo |
-|---|---:|---|
-| Fecha/tiempo | 10 | `models/examples/example_dates.sql` |
-| NULL/condicionales | 6 | `models/examples/example_nulls.sql` |
-| Strings | 11 | `models/examples/example_strings.sql` |
-| Regex | 5 | `models/examples/example_regex.sql` |
-| Agregadas/analíticas | 8 | `models/examples/example_aggregations.sql` |
-| JSON/SUPER | 8 | `models/examples/example_json.sql` |
-| Arrays/UNNEST | 3 | `models/examples/example_unnest.sql` |
-| Tipos/casts | 6 | `models/examples/example_types.sql` |
+## 🎯 Cómo funciona
+
+Los modelos invocan macros como `{{ median(col) }}` o `{{ nvl(a, b) }}`. Al compilar:
+
+- **Contra Postgres** → renderiza equivalencias (`coalesce(a, b)`, `percentile_cont(0.5)`, etc.) y se apoya en una capa SQL de funciones que el proyecto instala automáticamente
+- **Contra Redshift** → renderiza funciones nativas (`nvl(a, b)`, `median(col)`)
+
+El SQL final es distinto, pero el resultado es equivalente.
+
+---
+
+## 📊 Cobertura de macros
+
+| Categoría | # Macros | Modelo de ejemplo |
+|---|---|---|
+| Fecha/tiempo | 10 | `example_dates.sql` |
+| NULL/condicionales | 6 | `example_nulls.sql` |
+| Strings | 11 | `example_strings.sql` |
+| Regex | 5 | `example_regex.sql` |
+| Agregadas/analíticas | 8 | `example_aggregations.sql` |
+| JSON/SUPER | 8 | `example_json.sql` |
+| Arrays/UNNEST | 3 | `example_unnest.sql` |
+| Tipos/casts | 6 | `example_types.sql` |
 | **Total** | **57** | **100% cubierto** |
 
-Cada modelo de ejemplo tiene comentarios pedagógicos explicando qué hace cada macro, cuándo usarla, y caveats. Orden de lectura recomendado: nulls → strings → dates → aggregations → regex → types → json → unnest.
+Cada modelo tiene comentarios pedagógicos explicando qué hace cada macro y cuándo usarla.
 
-## Lo que YA está en dbt-core (no reescrito acá)
+---
 
-Cross-db macros nativos de dbt-core; se invocan con prefijo `dbt.*`:
-
-- Fecha: `dbt.dateadd`, `dbt.datediff`, `dbt.date_trunc`, `dbt.last_day`, `dbt.current_timestamp`
-- Strings: `dbt.length`, `dbt.position`, `dbt.replace`, `dbt.right`, `dbt.split_part`, `dbt.concat`, `dbt.listagg`
-- Tipos: `dbt.type_string`, `dbt.type_int`, `dbt.type_numeric`, `dbt.type_timestamp`, `dbt.type_boolean`
-- Arrays: `dbt.array_construct`, `dbt.array_append`, `dbt.array_concat`
-- Set ops: `dbt.except`, `dbt.intersect`
-- Otros: `dbt.hash`, `dbt.bool_or`, `dbt.cast_bool_to_text`
-
-## Uso en otro proyecto dbt
+## 📦 Uso en otro proyecto dbt
 
 Agregar al `packages.yml` del proyecto destino:
 
@@ -130,66 +171,88 @@ packages:
     revision: main   # o un tag versionado
 ```
 
-Y en su `dbt_project.yml`:
+Y en el `dbt_project.yml` del proyecto destino:
 
 ```yaml
 on-run-start:
   - "{{ install_postgres_compat() }}"
 ```
 
-> Las macros quedan namespaced bajo el nombre del package (`galicia_dbt_compat`). Para invocar sin namespace, configurar `dispatch` en el `dbt_project.yml` del proyecto destino.
+> Las macros quedan namespaced bajo `galicia_dbt_compat`. Para invocar sin namespace, configurar `dispatch` en el `dbt_project.yml`.
 
-## Convenciones del equipo
+---
 
-Del documento de análisis interno:
+## ⚠️ Limitaciones conocidas
 
-1. Prohibir `TEXT` como tipo de columna. Usar `varchar(n)` explícito (`{{ varchar_safe(n) }}`).
-2. Prohibir arrays nativos Postgres (`int[]`, `text[]`). Usar SUPER/JSONB vía macro.
-3. Prohibir operadores JSONB (`->`, `->>`, `#>>`). Acceso siempre vía macro.
-4. Prohibir `RETURNING`, `ON CONFLICT`.
-5. Sobredimensionar VARCHAR x4 para multibyte UTF-8.
+- `MEDIAN` agregado: siempre vía `{{ median(col) }}`
+- `MONTHS_BETWEEN` con decimales: usar `months_between_decimal`
+- `DECODE` con NULLs: agregar `WHEN expr IS NULL` explícito si es necesario
+- `APPROXIMATE COUNT DISTINCT` en Postgres: cae a count distinct exacto
+- SUPER nested + UNNEST: solo casos simples soportados
 
-Enforcement: SQLFluff con reglas custom + pre-commit + CI.
+---
 
-## Limitaciones conocidas
-
-- **`MEDIAN` agregado en Postgres**: no se puede definir como UDF agregada trivialmente. Siempre vía `{{ median(col) }}`, nunca `median(col)` directo.
-- **`MONTHS_BETWEEN` con decimales**: usar `months_between_decimal`.
-- **`DECODE` con NULLs**: Oracle/Teradata tratan `NULL = NULL`; el `CASE` estándar NO. Si el código original lo asume, agregar `WHEN expr IS NULL` explícito.
-- **`REGEXP_INSTR` con position/occurrence**: emulación parcial.
-- **`APPROXIMATE COUNT DISTINCT` en Postgres**: cae a count distinct exacto (sin HLL).
-- **SUPER nested + UNNEST con seq**: solo casos simples.
-
-## Comparar paridad Postgres ↔ Redshift
+## 🔍 Comparar paridad Postgres ↔ Redshift
 
 ```bash
 mkdir -p compare/postgres compare/redshift
 
 # Postgres
 for m in example_dates example_nulls example_strings example_regex \
-         example_aggregations example_json example_unnest example_types; do
-  PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c \
-    "\COPY (select * from ${POSTGRES_SCHEMA}.${m} order by 1) TO 'compare/postgres/${m}.csv' WITH CSV HEADER"
+        example_aggregations example_json example_unnest example_types; do
+  PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" \
+    -d "$POSTGRES_DB" -c \
+    "\COPY (select * from ${POSTGRES_SCHEMA}.${m} order by 1) TO \
+    'compare/postgres/${m}.csv' WITH CSV HEADER"
 done
 
 # Redshift
 for m in example_dates example_nulls example_strings example_regex \
-         example_aggregations example_json example_unnest example_types; do
-  PGPASSWORD="$REDSHIFT_PWD" psql "host=$REDSHIFT_HOST port=5439 dbname=$REDSHIFT_DB user=$REDSHIFT_USER sslmode=require" -c \
-    "\COPY (select * from ${REDSHIFT_SCHEMA}.${m} order by 1) TO 'compare/redshift/${m}.csv' WITH CSV HEADER"
+        example_aggregations example_json example_unnest example_types; do
+  PGPASSWORD="$REDSHIFT_PWD" psql "host=$REDSHIFT_HOST port=5439 dbname=$REDSHIFT_DB \
+    user=$REDSHIFT_USER sslmode=require" -c \
+    "\COPY (select * from ${REDSHIFT_SCHEMA}.${m} order by 1) TO \
+    'compare/redshift/${m}.csv' WITH CSV HEADER"
 done
 
+# Comparar
 diff -r compare/postgres compare/redshift
 ```
 
-Diferencias esperadas (timestamps de run, precisión numérica, HLL approx) están documentadas inline en cada `example_*.sql`.
+---
 
-## Recursos
+## 🆘 Troubleshooting
 
-- [Documentación oficial dbt](https://docs.getdbt.com)
+Ver [INSTALACION.md → Sección 10](INSTALACION.md#10-troubleshooting)
+
+---
+
+## 📚 Recursos
+
+- [Documentación oficial dbt](https://docs.getdbt.com/)
 - [dbt cross-db macros](https://docs.getdbt.com/reference/dbt-jinja-functions/cross-database-macros)
 - [dbt-utils](https://github.com/dbt-labs/dbt-utils)
+- [Análisis dbt con Postgres vs Redshift](https://github.com/alejandrogenovese/fix_postgres_redshift_dbt/blob/main/analisis%20dbt%20con%20postgres%20vs%20redshift.docx)
 
-## Autor
+---
 
-Alejandro Genovese — Data Architecture Lead, Banco Galicia.
+## 🤝 Contribuir
+
+Las contribuciones son bienvenidas. Por favor:
+
+1. Fork el repositorio
+2. Crea una rama con tu feature (`git checkout -b feature/AmazingFeature`)
+3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
+4. Push a la rama (`git push origin feature/AmazingFeature`)
+5. Abre un Pull Request
+
+---
+
+## 📄 Licencia
+
+Este proyecto está licenciado bajo la MIT License. Ver [LICENSE](LICENSE) para más detalles.
+
+---
+
+**Alejandro Genovese**  
+*Líder de Arquitectura Data*

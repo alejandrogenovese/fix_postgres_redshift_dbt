@@ -1,6 +1,6 @@
 # dbt_project.yml
-# Proyecto de capa de compatibilidad cross-db Postgres ↔ Redshift
-# para el contexto de migración Teradata → Redshift de Banco Galicia.
+# Proyecto de capa de compatibilidad cross-db Postgres  Redshift
+# para el contexto de migracin Teradata  Redshift de Banco Galicia.
 
 name: 'galicia_dbt_compat'
 version: '1.0.0'
@@ -9,7 +9,7 @@ config-version: 2
 # Profile que define las conexiones (en ~/.dbt/profiles.yml)
 profile: 'galicia_dbt_compat'
 
-# Rutas estándar
+# Rutas estndar
 model-paths:    ["models"]
 analysis-paths: ["analyses"]
 test-paths:     ["tests"]
@@ -25,7 +25,7 @@ clean-targets:
 # on-run-start: instala la capa de compatibilidad SQL en Postgres
 # ============================================================
 # Crea funciones (getdate, dateadd, nvl, etc.) en la base Postgres
-# para que código "Redshift-style" funcione sin reescribir.
+# para que cdigo "Redshift-style" funcione sin reescribir.
 # Es idempotente (CREATE OR REPLACE) y solo corre si target.type='postgres'.
 on-run-start:
   - "{{ install_postgres_compat() }}"
@@ -34,7 +34,7 @@ on-run-start:
 # Variables del proyecto
 # ============================================================
 vars:
-  # Factor multiplicador para varchar_safe() — cubre UTF-8 multibyte.
+  # Factor multiplicador para varchar_safe()  cubre UTF-8 multibyte.
   # 4 es conservador; bajar a 2 si todos los strings son ASCII.
   varchar_multibyte_factor: 4
 
@@ -42,11 +42,11 @@ vars:
   default_timezone: 'America/Argentina/Buenos_Aires'
 
 # ============================================================
-# Configuración de modelos
+# Configuracin de modelos
 # ============================================================
-# Convención: TODOS los modelos del proyecto van bajo schemas
-# explícitos por capa. Acá usamos solo "examples" como ejemplo
-# pedagógico; en un proyecto productivo: bronze, silver, gold.
+# Convencin: TODOS los modelos del proyecto van bajo schemas
+# explcitos por capa. Ac usamos solo "examples" como ejemplo
+# pedaggico; en un proyecto productivo: bronze, silver, gold.
 models:
   galicia_dbt_compat:
     examples:
@@ -55,7 +55,7 @@ models:
       # +schema: examples  # opcional: separa los ejemplos del resto
 
 # ============================================================
-# Configuración de seeds
+# Configuracin de seeds
 # ============================================================
 seeds:
   galicia_dbt_compat:

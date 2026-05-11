@@ -427,3 +427,4 @@ DROP FUNCTION IF EXISTS json_array_length(text) CASCADE;
 - [Documentación oficial dbt](https://docs.getdbt.com)
 - [dbt cross-db macros](https://docs.getdbt.com/reference/dbt-jinja-functions/cross-database-macros)
 - [dbt-utils](https://github.com/dbt-labs/dbt-utils)
+- [Análisis dbt con Postgres vs Redshift](https://github.com/alejandrogenovese/fix_postgres_redshift_dbt/analisis%20dbt%20con%20postgres%20vs%20redshift.docx)
